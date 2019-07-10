@@ -22,6 +22,7 @@ export class PeerConnector implements P2P.IPeerConnector {
         }
 
         connection = create({
+            ackTimeout: 600000,
             port: peer.port,
             hostname: peer.ip,
         });

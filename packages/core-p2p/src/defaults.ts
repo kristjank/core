@@ -14,9 +14,9 @@ export const defaults = {
      */
     minimumNetworkReach: 20,
     /**
-     * The timeout for requests to other peers
+     * The timeout for requests to other peers, in milliseconds.
      */
-    globalTimeout: 5000,
+    globalTimeout: 600000,
     /**
      * The maximum number of peers we will broadcast data to
      */

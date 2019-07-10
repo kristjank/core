@@ -156,7 +156,7 @@ export class PeerCommunicator implements P2P.IPeerCommunicator {
                     "Content-Type": "application/json",
                 },
             },
-            timeoutMsec || 10000,
+            timeoutMsec || 600000,
         );
 
         if (!peerBlocks) {
@@ -239,14 +239,14 @@ export class PeerCommunicator implements P2P.IPeerCommunicator {
                 throw new Error(`Response validation failed from peer ${peer.ip} : ${JSON.stringify(response.data)}`);
             }
         } catch (e) {
-            this.handleSocketError(peer, event, e);
+            this.handleSocketError(peer, event, e, timeout);
             return undefined;
         }
 
         return response.data;
     }
 
-    private handleSocketError(peer: P2P.IPeer, event: string, error: Error): void {
+    private handleSocketError(peer: P2P.IPeer, event: string, error: Error, timeout: number): void {
         if (!error.name) {
             return;
         }
@@ -265,7 +265,7 @@ export class PeerCommunicator implements P2P.IPeerCommunicator {
                 break;
             default:
                 if (process.env.CORE_P2P_PEER_VERIFIER_DEBUG_EXTRA) {
-                    this.logger.debug(`Socket error (peer ${peer.ip}) : ${error.message}`);
+                    this.logger.debug(`Socket error (peer ${peer.ip}, timeout=${timeout}) : ${error.message}`);
                 }
                 this.emitter.emit("internal.p2p.disconnectPeer", { peer });
         }
