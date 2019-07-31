@@ -45,21 +45,7 @@ module.exports = {
         port: process.env.CORE_API_PORT || 4003,
     },
     "@arkecosystem/core-wallet-api": {},
-    "@arkecosystem/core-webhooks": {
-        enabled: process.env.CORE_WEBHOOKS_ENABLED,
-        server: {
-            host: process.env.CORE_WEBHOOKS_HOST || "0.0.0.0",
-            port: process.env.CORE_WEBHOOKS_PORT || 4004,
-            whitelist: ["127.0.0.1", "::ffff:127.0.0.1"],
-        },
-    },
     "@arkecosystem/core-forger": {},
-    "@arkecosystem/core-exchange-json-rpc": {
-        enabled: process.env.CORE_EXCHANGE_JSON_RPC_ENABLED,
-        host: process.env.CORE_EXCHANGE_JSON_RPC_HOST || "0.0.0.0",
-        port: process.env.CORE_EXCHANGE_JSON_RPC_PORT || 8080,
-        allowRemote: false,
-        whitelist: ["127.0.0.1", "::ffff:127.0.0.1"],
-    },
     "@arkecosystem/core-snapshots": {},
+    "@arkecosystem/core-new-relic": {},
 };
