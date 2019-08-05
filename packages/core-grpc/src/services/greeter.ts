@@ -1,23 +1,20 @@
 import { app } from "@arkecosystem/core-container";
 import { ApplicationEvents } from "@arkecosystem/core-event-emitter";
-import { EventEmitter, Logger } from "@arkecosystem/core-interfaces";
+import { Logger } from "@arkecosystem/core-interfaces";
 
 import { loadSync, PackageDefinition } from "@grpc/proto-loader";
-import { GrpcObject, loadPackageDefinition, Server } from "grpc";
+import { GrpcObject, loadPackageDefinition } from "grpc";
 
 import { sendUnaryData, ServerUnaryCall, ServerWriteableStream } from "grpc";
 
-import { GRPCGenericService } from "./grpc-service";
+import { GrpcServiceController } from "./grpc-service-controller";
 
-export class GreeterService extends GRPCGenericService {
-    public grpcObject: GrpcObject;
-    protected readonly emitter: EventEmitter.EventEmitter = app.resolvePlugin<EventEmitter.EventEmitter>(
-        "event-emitter",
-    );
+export class Greeter extends GrpcServiceController {
+    private grpcObject: GrpcObject;
     private packageDefinition: PackageDefinition;
     private readonly logger: Logger.ILogger = app.resolvePlugin<Logger.ILogger>("logger");
 
-    constructor(readonly options, server: Server) {
+    constructor(readonly options) {
         super();
 
         this.logger.info(options);
@@ -30,6 +27,10 @@ export class GreeterService extends GRPCGenericService {
         });
 
         this.grpcObject = loadPackageDefinition(this.packageDefinition).greeter;
+    }
+
+    public getService(): any {
+        return this.grpcObject.Greeter.service;
     }
 
     /**
