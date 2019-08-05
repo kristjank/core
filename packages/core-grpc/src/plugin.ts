@@ -1,14 +1,13 @@
 import { Container, Logger } from "@arkecosystem/core-interfaces";
 import { defaults } from "./defaults";
-import { ServiceManager } from "./manager";
+import { GRPCServiceManager } from "./manager";
 
 export const plugin: Container.IPluginDescriptor = {
     pkg: require("../package.json"),
     defaults,
     alias: "grpc",
     async register(container: Container.IContainer, options) {
-        /* Start plugin here */
-        const serviceManager = new ServiceManager();
+        const serviceManager = new GRPCServiceManager();
 
         serviceManager.start(options);
 
