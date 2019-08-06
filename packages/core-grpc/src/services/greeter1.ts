@@ -8,13 +8,13 @@ import { sendUnaryData, ServerUnaryCall, ServerWriteableStream } from "grpc";
 
 import { GrpcServiceController } from "./grpc-service-controller";
 
-export class Greeter extends GrpcServiceController {
+export class Greeter1 extends GrpcServiceController {
     private readonly logger: Logger.ILogger = app.resolvePlugin<Logger.ILogger>("logger");
 
     constructor(server: Server, grpcObj: GrpcObject) {
         super();
 
-        server.addService(grpcObj.greeter.Greeter.service, this);
+        server.addService(grpcObj.greeter1.Greeter1.service, this);
     }
 
     /**
@@ -24,10 +24,10 @@ export class Greeter extends GrpcServiceController {
     public sayHello(call: ServerUnaryCall<GrpcObject>, callback: sendUnaryData<GrpcObject>): void {
         // TODO: do some processing work
         const lastBlock = this.blockchain.getLastBlock().data.height;
-        const networkHeight = 10;
+        const networkHeight = this.blockchain.state.getLastHeight().toFixed;
 
         // tslint:disable-next-line: no-null-keyword
-        callback(null, { message: "LastBlock " + lastBlock + networkHeight });
+        callback(null, { message: "g1LastBlock " + lastBlock + "==" + networkHeight });
     }
 
     public sayHello2(call: ServerUnaryCall<GrpcObject>, callback: sendUnaryData<GrpcObject>): void {
@@ -36,7 +36,7 @@ export class Greeter extends GrpcServiceController {
 
         this.logger.debug(call.request);
         // tslint:disable-next-line: no-null-keyword
-        callback(null, { message: "2222 " + networkHeight });
+        callback(null, { message: "g1 " + networkHeight });
     }
 
     public sayHelloStreamResponse(call: ServerWriteableStream<GrpcObject>): void {

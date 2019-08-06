@@ -1,0 +1,23 @@
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.arkecosytem.helloworld";
+option java_outer_classname = "HelloWorldProto";
+option objc_class_prefix = "HLW";
+
+package greeter1;
+
+import "model.proto";
+
+// The greeting service definition.
+service Greeter1 {
+    // Sends a greeting
+    rpc SayHello (HelloRequest) returns (HelloReply) {}
+    rpc SayHello2 (HelloRequest) returns (HelloReply) {}
+    rpc SayHelloStreamResponse (HelloRequest) returns (stream HelloReply) {}
+
+    // rpc SayHelloStreamRequest (stream HelloRequest) returns (HelloResponse) {}
+    // rpc SayHelloStream (stream HelloRequest) returns (stream HelloResponse) {}
+    // rpc SayHelloStreamResponse (HelloRequest) returns (HelloReply) {}
+}
