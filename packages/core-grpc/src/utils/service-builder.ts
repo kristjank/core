@@ -15,7 +15,7 @@ export abstract class ServiceBuilder {
         const protoPaths: string[] = [];
         for (const service of services) {
             if (service.enabled) {
-                protoPaths.push(`${protoPath}${service.protoPackage}/${service.protoFile}`);
+                protoPaths.push(`${protoPath}${service.package}/${service.protoFileName}`);
             }
         }
 
@@ -34,8 +34,8 @@ export abstract class ServiceBuilder {
         for (const service of services) {
             if (service.enabled) {
                 server.addService(
-                    grpcObjects[service.protoPackage][service.protoName].service,
-                    this.createService(service.protoName),
+                    grpcObjects[service.package][service.className].service,
+                    this.createService(service.className),
                 );
             }
         }

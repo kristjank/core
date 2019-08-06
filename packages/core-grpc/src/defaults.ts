@@ -3,15 +3,15 @@ export const defaults = {
     services: [
         {
             enabled: true,
-            protoName: "Greeter",
-            protoPackage: "greeter",
-            protoFile: "service.proto",
+            className: "Greeter",
+            package: "greeter",
+            protoFileName: "service.proto",
         },
         {
             enabled: true,
-            protoName: "Greeter1",
-            protoPackage: "greeter1",
-            protoFile: "service.proto",
+            className: "Greeter1",
+            package: "greeter1",
+            protoFileName: "service.proto",
         },
     ],
 };
