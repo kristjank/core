@@ -1,42 +1,21 @@
-import { app } from "@arkecosystem/core-container";
 import { ApplicationEvents } from "@arkecosystem/core-event-emitter";
-import { Logger } from "@arkecosystem/core-interfaces";
-
-import { GrpcObject, Server } from "grpc";
-
+import { GrpcObject } from "grpc";
 import { sendUnaryData, ServerUnaryCall, ServerWriteableStream } from "grpc";
+import { BaseService } from "./base-service";
 
-import { GrpcServiceController } from "./grpc-service-controller";
-
-export class Greeter1 extends GrpcServiceController {
-    private readonly logger: Logger.ILogger = app.resolvePlugin<Logger.ILogger>("logger");
-
-    constructor(server: Server, grpcObj: GrpcObject) {
-        super();
-
-        server.addService(grpcObj.greeter1.Greeter1.service, this);
-    }
-
-    /**
-     * RPC Service implementations below. Implement them based on .proto definitions
-     *
-     */
+export class Greeter1 extends BaseService {
     public sayHello(call: ServerUnaryCall<GrpcObject>, callback: sendUnaryData<GrpcObject>): void {
         // TODO: do some processing work
-        const lastBlock = this.blockchain.getLastBlock().data.height;
-        const networkHeight = this.blockchain.state.getLastHeight().toFixed;
-
         // tslint:disable-next-line: no-null-keyword
-        callback(null, { message: "g1LastBlock " + lastBlock + "==" + networkHeight });
+        callback(null, { message: "g1: " + this.constructor.name });
     }
 
     public sayHello2(call: ServerUnaryCall<GrpcObject>, callback: sendUnaryData<GrpcObject>): void {
         // TODO: do some processing work
-        const networkHeight = 10;
 
         this.logger.debug(call.request);
         // tslint:disable-next-line: no-null-keyword
-        callback(null, { message: "g1 " + networkHeight });
+        callback(null, { message: "g1: " + this.constructor.name });
     }
 
     public sayHelloStreamResponse(call: ServerWriteableStream<GrpcObject>): void {
