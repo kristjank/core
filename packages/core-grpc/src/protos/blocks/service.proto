@@ -1,0 +1,16 @@
+
+syntax = "proto3";
+
+// client code generation parameters
+option java_multiple_files = true;
+option java_package = "com.arkecosytem.models";
+option java_outer_classname = "TransactionProto";
+option objc_class_prefix = "TP";
+
+package blocks;
+
+import "model.proto";
+
+service Blocks {
+    rpc GetBlocks (BlockRequest) returns (BlockReply) {}
+}

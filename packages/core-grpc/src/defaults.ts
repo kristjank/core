@@ -13,5 +13,17 @@ export const defaults = {
             package: "greeter1",
             protoFileName: "service.proto",
         },
+        {
+            enabled: true,
+            className: "Transactions",
+            package: "transactions",
+            protoFileName: "service.proto",
+        },
+        {
+            enabled: true,
+            className: "Blocks",
+            package: "blocks",
+            protoFileName: "service.proto",
+        },
     ],
 };

@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+// The request message containing the user's name.
+message BlockRequest {
+  string id = 1;
+  string height = 2;
+}
+
+// The response message containing the greetings
+message BlockReply {
+  string id = 1;
+  string reward = 2;
+}
