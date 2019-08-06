@@ -10,7 +10,7 @@ export class Blocks extends BaseService {
         this.logger.info(block);
 
         // tslint:disable-next-line: no-null-keyword
-        callback(null, { id: block.id, reward: block.reward });
+        callback(null, { id: block.id, reward: block.reward.toFixed() });
     }
 
     public getForgedBlocksAsStream(call: ServerWriteableStream<GrpcObject>): void {
@@ -24,9 +24,9 @@ export class Blocks extends BaseService {
                 version: block.version,
                 timestamp: block.timestamp,
                 height: block.height,
-                reward: block.reward,
+                reward: block.reward.toFixed(),
                 previousBlock: block.previousBlock,
-                totalAmount: block.totalAmount,
+                totalAmount: block.totalAmount.toFixed(),
                 generatorPublicKey: block.generatorPublicKey,
             });
 
