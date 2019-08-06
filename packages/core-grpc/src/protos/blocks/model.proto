@@ -2,12 +2,18 @@ syntax = "proto3";
 
 // The request message containing the user's name.
 message BlockRequest {
-  string id = 1;
-  string height = 2;
+    string id = 1;
+    string height = 2;
 }
 
 // The response message containing the greetings
 message BlockReply {
-  string id = 1;
-  string reward = 2;
+    string id = 1;
+    int32 version = 2;
+    int32 timestamp = 3;
+    int32 height = 4;
+    string reward = 5;
+    string previousBlock = 6;
+    string totalAmount = 7;
+    string generatorPublicKey = 8;
 }
