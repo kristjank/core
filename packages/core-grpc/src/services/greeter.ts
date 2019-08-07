@@ -1,7 +1,6 @@
 import { ApplicationEvents } from "@arkecosystem/core-event-emitter";
 import { sendUnaryData, ServerDuplexStream, ServerReadableStream, ServerUnaryCall, ServerWriteableStream, status } from "grpc";
-import { ServiceError } from "../common";
-import { BaseService } from "../common";
+import { BaseService, ServiceError } from "../common";
 
 // tslint:disable no-null-keyword
 export class Greeter extends BaseService {

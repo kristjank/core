@@ -1,13 +1,19 @@
 import { Container, Logger } from "@arkecosystem/core-interfaces";
 import { defaults } from "./defaults";
-import { GRPCServiceManager } from "./manager";
+import { ServiceManager } from "./manager";
 
 export const plugin: Container.IPluginDescriptor = {
     pkg: require("../package.json"),
     defaults,
     alias: "grpc",
     async register(container: Container.IContainer, options) {
-        const serviceManager = new GRPCServiceManager();
+        if (!options.enabled) {
+            container.resolvePlugin<Logger.ILogger>("logger").info("gRPC Server is disabled");
+
+            return undefined;
+        }
+
+        const serviceManager = new ServiceManager();
 
         serviceManager.start(options);
 
@@ -17,7 +23,7 @@ export const plugin: Container.IPluginDescriptor = {
         const grpc = container.resolvePlugin("grpc");
 
         if (grpc) {
-            container.resolvePlugin<Logger.ILogger>("logger").info("Stopping gRPC Manager");
+            container.resolvePlugin<Logger.ILogger>("logger").info("Stopping gRPC Server");
             return grpc.stop();
         }
     },

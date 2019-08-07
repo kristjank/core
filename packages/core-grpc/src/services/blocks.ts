@@ -1,14 +1,14 @@
 import { ApplicationEvents } from "@arkecosystem/core-event-emitter";
 import { sendUnaryData, ServerUnaryCall, ServerWriteableStream } from "grpc";
-import { BaseService } from "../common";
+import { BaseService } from "../common/base-service";
 
+// tslint:disable no-null-keyword
 export class Blocks extends BaseService {
     public async getBlocks(call: ServerUnaryCall<any>, callback: sendUnaryData<any>): Promise<void> {
         this.logger.info(`RPC Request from ${call.getPeer()} request: ${call.request.id}$`);
         const block = await this.blocksRepository.findById(call.request.id);
         this.logger.info(block);
 
-        // tslint:disable-next-line: no-null-keyword
         callback(null, { id: block.id, reward: block.reward.toFixed() });
     }
 
