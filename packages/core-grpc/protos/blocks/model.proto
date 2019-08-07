@@ -17,3 +17,5 @@ message BlockReply {
     string totalAmount = 7;
     string generatorPublicKey = 8;
 }
+
+message Empty {}

@@ -2,7 +2,7 @@ import { app } from "@arkecosystem/core-container";
 import { Logger } from "@arkecosystem/core-interfaces";
 
 import { Server, ServerCredentials } from "grpc";
-import { ServiceBuilder } from "./utils";
+import { ServiceBuilder } from "./common";
 
 export class GRPCServiceManager {
     private readonly logger: Logger.ILogger = app.resolvePlugin<Logger.ILogger>("logger");

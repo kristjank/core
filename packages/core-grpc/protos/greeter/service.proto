@@ -1,0 +1,21 @@
+
+syntax = "proto3";
+
+// client generation properties for different languages
+option java_multiple_files = true;
+option java_package = "com.arkecosytem.greeter";
+option java_outer_classname = "Greeter";
+option objc_class_prefix = "GT";
+
+package greeter;
+
+import "model.proto";
+
+// The demo greeting service definition.
+// All supported call types are implemented.
+service Greeter {
+    rpc sayHello (HelloRequest) returns (HelloReply) {}
+    rpc sayHelloStreamResponse (Empty) returns (stream HelloReply) {}
+    rpc sayHelloStreamRequest (stream HelloRequest) returns (HelloReply) {}
+    rpc sayHelloDuplexStream (stream HelloRequest) returns (stream HelloReply) {}
+}

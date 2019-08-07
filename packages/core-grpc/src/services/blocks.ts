@@ -1,10 +1,9 @@
 import { ApplicationEvents } from "@arkecosystem/core-event-emitter";
-import { GrpcObject } from "grpc";
 import { sendUnaryData, ServerUnaryCall, ServerWriteableStream } from "grpc";
-import { BaseService } from "./base-service";
+import { BaseService } from "../common";
 
 export class Blocks extends BaseService {
-    public async getBlocks(call: ServerUnaryCall<GrpcObject>, callback: sendUnaryData<GrpcObject>): Promise<void> {
+    public async getBlocks(call: ServerUnaryCall<any>, callback: sendUnaryData<any>): Promise<void> {
         this.logger.info(`RPC Request from ${call.getPeer()} request: ${call.request.id}$`);
         const block = await this.blocksRepository.findById(call.request.id);
         this.logger.info(block);
@@ -13,12 +12,12 @@ export class Blocks extends BaseService {
         callback(null, { id: block.id, reward: block.reward.toFixed() });
     }
 
-    public getForgedBlocksAsStream(call: ServerWriteableStream<GrpcObject>): void {
+    public getForgedBlocksAsStream(call: ServerWriteableStream<any>): void {
         let i: number = 10;
 
         this.emitter.on(ApplicationEvents.BlockForged, () => {
             const block = this.blockchain.getLastBlock().data;
-            this.logger.info(block);
+            // TODO: transformers
             call.write({
                 id: block.id,
                 version: block.version,

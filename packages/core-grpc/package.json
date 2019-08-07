@@ -1,10 +1,10 @@
 {
     "private": true,
     "name": "@arkecosystem/core-grpc",
-    "description": "Provides gRPC for Ark Core",
+    "description": "Provides Dynamic gRPC Service Integration for Ark Core",
     "version": "0.0.1",
     "contributors": [
-        "Your Name <your@domain.io>"
+        "Kristjan Kosic <kristjan@ark.io>"
     ],
     "license": "MIT",
     "main": "dist/index.js",
@@ -31,7 +31,8 @@
         "@arkecosystem/core-container": "^2.5.0-next.10",
         "@arkecosystem/core-interfaces": "^2.5.0-next.10",
         "@grpc/proto-loader": "^0.5.1",
-        "grpc": "^1.22.2"
+        "grpc": "^1.22.2",
+        "protobufjs": "^6.8.8"
     },
     "devDependencies": {
         "@sindresorhus/tsconfig": "^0.4.0",
