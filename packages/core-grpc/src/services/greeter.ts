@@ -2,7 +2,7 @@ import { ApplicationEvents } from "@arkecosystem/core-event-emitter";
 import { sendUnaryData, ServerDuplexStream, ServerReadableStream, ServerUnaryCall, ServerWriteableStream, status } from "grpc";
 import { BaseService, ServiceError } from "../common";
 
-// tslint:disable no-null-keyword
+// tslint:disable:no-null-keyword
 export class Greeter extends BaseService {
     public sayHello(call: ServerUnaryCall<any>, callback: sendUnaryData<any>): void {
         this.logger.info(`sayHello: ${call.getPeer}`);
