@@ -20,7 +20,6 @@ export class DatabaseService implements Database.IDatabaseService {
     public blocksBusinessRepository: Database.IBlocksBusinessRepository;
     public transactionsBusinessRepository: Database.ITransactionsBusinessRepository;
     public blocksInCurrentRound: Interfaces.IBlock[] = undefined;
-    public stateStarted: boolean = false;
     public restoredDatabaseIntegrity: boolean = false;
     public forgingDelegates: State.IWallet[] = undefined;
     public cache: Map<any, any> = new Map();
@@ -41,11 +40,13 @@ export class DatabaseService implements Database.IDatabaseService {
         this.delegates = delegatesBusinessRepository;
         this.blocksBusinessRepository = blocksBusinessRepository;
         this.transactionsBusinessRepository = transactionsBusinessRepository;
-
-        this.registerListeners();
     }
 
     public async init(): Promise<void> {
+        if (process.env.CORE_ENV === "test") {
+            Managers.configManager.getMilestone().aip11 = false;
+        }
+
         app.resolvePlugin<State.IStateService>("state")
             .getStore()
             .setGenesisBlock(Blocks.BlockFactory.fromJson(Managers.configManager.get("genesisBlock")));
@@ -83,8 +84,10 @@ export class DatabaseService implements Database.IDatabaseService {
         await this.applyRound(block.data.height);
 
         for (const transaction of block.transactions) {
-            this.emitTransactionEvents(transaction);
+            await this.emitTransactionEvents(transaction);
         }
+
+        this.detectMissedBlocks(block);
 
         this.emitter.emit(ApplicationEvents.BlockApplied, block.data);
     }
@@ -105,10 +108,6 @@ export class DatabaseService implements Database.IDatabaseService {
                 this.logger.info(`Starting Round ${roundInfo.round.toLocaleString()}`);
 
                 try {
-                    if (nextHeight > 1) {
-                        this.updateDelegateStats(this.forgingDelegates);
-                    }
-
                     const delegates: State.IWallet[] = this.walletManager.loadActiveDelegateList(roundInfo);
 
                     await this.setForgingDelegatesOfRound(roundInfo, delegates);
@@ -324,14 +323,25 @@ export class DatabaseService implements Database.IDatabaseService {
 
         if (!lastBlock) {
             return [];
+        } else if (lastBlock.data.height === 1) {
+            return [lastBlock];
         }
 
         if (!roundInfo) {
             roundInfo = roundCalculator.calculateRound(lastBlock.data.height);
         }
 
-        return (await this.getBlocks(roundInfo.roundHeight, roundInfo.maxDelegates)).map((b: Interfaces.IBlockData) =>
-            Blocks.BlockFactory.fromData(b),
+        return (await this.getBlocks(roundInfo.roundHeight, roundInfo.maxDelegates)).map(
+            (block: Interfaces.IBlockData) => {
+                if (block.height === 1) {
+                    return app
+                        .resolvePlugin<State.IStateService>("state")
+                        .getStore()
+                        .getGenesisBlock();
+                }
+
+                return Blocks.BlockFactory.fromData(block);
+            },
         );
     }
 
@@ -361,7 +371,13 @@ export class DatabaseService implements Database.IDatabaseService {
             ({ serialized, id }) => Transactions.TransactionFactory.fromBytesUnsafe(serialized, id).data,
         );
 
-        return Blocks.BlockFactory.fromData(block);
+        const lastBlock: Interfaces.IBlock = Blocks.BlockFactory.fromData(block);
+
+        if (block.height === 1 && process.env.CORE_ENV === "test") {
+            Managers.configManager.getMilestone().aip11 = true;
+        }
+
+        return lastBlock;
     }
 
     public async getCommonBlocks(ids: string[]): Promise<Interfaces.IBlockData[]> {
@@ -414,6 +430,10 @@ export class DatabaseService implements Database.IDatabaseService {
 
         assert(this.blocksInCurrentRound.pop().data.id === block.data.id);
 
+        for (let i = block.transactions.length - 1; i >= 0; i--) {
+            this.emitter.emit(ApplicationEvents.TransactionReverted, block.transactions[i].data);
+        }
+
         this.emitter.emit(ApplicationEvents.BlockReverted, block.data);
     }
 
@@ -451,46 +471,13 @@ export class DatabaseService implements Database.IDatabaseService {
         this.emitter.emit(ApplicationEvents.RoundCreated, activeDelegates);
     }
 
-    public updateDelegateStats(delegates: State.IWallet[]): void {
-        if (!delegates || !this.blocksInCurrentRound) {
-            return;
-        }
-
-        if (this.blocksInCurrentRound.length === 1 && this.blocksInCurrentRound[0].data.height === 1) {
-            return;
-        }
-
-        this.logger.debug("Updating delegate statistics");
-
-        try {
-            for (const delegate of delegates) {
-                const producedBlocks: Interfaces.IBlock[] = this.blocksInCurrentRound.filter(
-                    blockGenerator => blockGenerator.data.generatorPublicKey === delegate.publicKey,
-                );
-
-                if (producedBlocks.length === 0) {
-                    const wallet: State.IWallet = this.walletManager.findByPublicKey(delegate.publicKey);
-
-                    this.logger.debug(
-                        `Delegate ${wallet.getAttribute("delegate.username")} (${
-                            wallet.publicKey
-                        }) just missed a block.`,
-                    );
-
-                    this.emitter.emit(ApplicationEvents.ForgerMissing, {
-                        delegate: wallet,
-                    });
-                }
-            }
-        } catch (error) {
-            this.logger.error(error.stack);
-        }
-    }
-
     public async verifyBlockchain(): Promise<boolean> {
         const errors: string[] = [];
 
-        const lastBlock: Interfaces.IBlock = await this.getLastBlock();
+        const lastBlock: Interfaces.IBlock = app
+            .resolvePlugin<State.IStateService>("state")
+            .getStore()
+            .getLastBlock();
 
         // Last block is available
         if (!lastBlock) {
@@ -554,7 +541,7 @@ export class DatabaseService implements Database.IDatabaseService {
         const senderId: string = Identities.Address.fromPublicKey(transaction.data.senderPublicKey);
 
         const sender: State.IWallet = this.walletManager.findByAddress(senderId);
-        const transactionHandler: Handlers.TransactionHandler = Handlers.Registry.get(
+        const transactionHandler: Handlers.TransactionHandler = await Handlers.Registry.get(
             transaction.type,
             transaction.typeGroup,
         );
@@ -572,6 +559,34 @@ export class DatabaseService implements Database.IDatabaseService {
             return !dbTransaction;
         } catch {
             return false;
+        }
+    }
+
+    private detectMissedBlocks(block: Interfaces.IBlock) {
+        const lastBlock: Interfaces.IBlock = app
+            .resolvePlugin<State.IStateService>("state")
+            .getStore()
+            .getLastBlock();
+
+        if (lastBlock.data.height === 1) {
+            return;
+        }
+
+        const lastSlot: number = Crypto.Slots.getSlotNumber(lastBlock.data.timestamp);
+        const currentSlot: number = Crypto.Slots.getSlotNumber(block.data.timestamp);
+
+        const missedSlots: number = Math.min(currentSlot - lastSlot - 1, this.forgingDelegates.length);
+        for (let i = 0; i < missedSlots; i++) {
+            const missedSlot: number = lastSlot + i + 1;
+            const delegate: State.IWallet = this.forgingDelegates[missedSlot % this.forgingDelegates.length];
+
+            this.logger.debug(
+                `Delegate ${delegate.getAttribute("delegate.username")} (${delegate.publicKey}) just missed a block.`,
+            );
+
+            this.emitter.emit(ApplicationEvents.ForgerMissing, {
+                delegate,
+            });
         }
     }
 
@@ -604,6 +619,10 @@ export class DatabaseService implements Database.IDatabaseService {
             this.logger.warn("No block found in database");
 
             lastBlock = await this.createGenesisBlock();
+
+            if (process.env.CORE_ENV === "test") {
+                Managers.configManager.getMilestone().aip11 = true;
+            }
         }
 
         this.configureState(lastBlock);
@@ -713,33 +732,9 @@ export class DatabaseService implements Database.IDatabaseService {
         return delegates;
     }
 
-    private emitTransactionEvents(transaction: Interfaces.ITransaction): void {
+    private async emitTransactionEvents(transaction: Interfaces.ITransaction): Promise<void> {
         this.emitter.emit(ApplicationEvents.TransactionApplied, transaction.data);
 
-        Handlers.Registry.get(transaction.type, transaction.typeGroup).emitEvents(transaction, this.emitter);
-    }
-
-    private registerListeners(): void {
-        this.emitter.on(ApplicationEvents.StateStarted, () => {
-            this.stateStarted = true;
-        });
-
-        this.emitter.on(ApplicationEvents.WalletColdCreated, async coldWallet => {
-            try {
-                const wallet = await this.connection.walletsRepository.findByAddress(coldWallet.address);
-
-                if (wallet) {
-                    for (const key of Object.keys(wallet)) {
-                        if (["balance"].indexOf(key) !== -1) {
-                            return;
-                        }
-
-                        coldWallet[key] = key !== "voteBalance" ? wallet[key] : Utils.BigNumber.make(wallet[key]);
-                    }
-                }
-            } catch (err) {
-                this.logger.error(err);
-            }
-        });
+        (await Handlers.Registry.get(transaction.type, transaction.typeGroup)).emitEvents(transaction, this.emitter);
     }
 }

@@ -1,15 +1,18 @@
 import ByteBuffer from "bytebuffer";
 import { TransactionType, TransactionTypeGroup } from "../enums";
-import { MalformedTransactionBytesError, TransactionVersionError } from "../errors";
+import {
+    DuplicateParticipantInMultiSignatureError,
+    MalformedTransactionBytesError,
+    TransactionVersionError,
+} from "../errors";
 import { Address } from "../identities";
-import { ITransaction, ITransactionData } from "../interfaces";
-import { configManager } from "../managers";
-import { BigNumber } from "../utils";
+import { IDeserializeOptions, ITransaction, ITransactionData } from "../interfaces";
+import { BigNumber, isSupportedTansactionVersion } from "../utils";
 import { TransactionTypeFactory } from "./types";
 
 // Reference: https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-11.md
 class Deserializer {
-    public deserialize(serialized: string | Buffer): ITransaction {
+    public deserialize(serialized: string | Buffer, options: IDeserializeOptions = {}): ITransaction {
         const data = {} as ITransactionData;
 
         const buffer: ByteBuffer = this.getByteBuffer(serialized);
@@ -23,10 +26,10 @@ class Deserializer {
 
         this.deserializeSignatures(data, buffer);
 
-        if (data.version === 1) {
-            this.applyV1Compatibility(data);
-        } else if (data.version === 2 && configManager.getMilestone().aip11) {
-            //
+        if (options.acceptLegacyVersion || isSupportedTansactionVersion(data.version)) {
+            if (data.version === 1) {
+                this.applyV1Compatibility(data);
+            }
         } else {
             throw new TransactionVersionError(data.version);
         }
@@ -68,15 +71,23 @@ class Deserializer {
         }
     }
 
-    private deserializeSignatures(transaction: ITransactionData, buf: ByteBuffer) {
+    private deserializeSignatures(transaction: ITransactionData, buf: ByteBuffer): void {
         if (transaction.version === 1) {
             this.deserializeECDSA(transaction, buf);
-        } else if (transaction.version === 2) {
-            this.deserializeSchnorr(transaction, buf);
+        } else {
+            this.deserializeSchnorrOrECDSA(transaction, buf);
         }
     }
 
-    private deserializeECDSA(transaction: ITransactionData, buf: ByteBuffer) {
+    private deserializeSchnorrOrECDSA(transaction: ITransactionData, buf: ByteBuffer): void {
+        if (this.detectSchnorr(buf)) {
+            this.deserializeSchnorr(transaction, buf);
+        } else {
+            this.deserializeECDSA(transaction, buf);
+        }
+    }
+
+    private deserializeECDSA(transaction: ITransactionData, buf: ByteBuffer): void {
         const currentSignatureLength = (): number => {
             buf.mark();
 
@@ -123,7 +134,7 @@ class Deserializer {
         }
     }
 
-    private deserializeSchnorr(transaction: ITransactionData, buf: ByteBuffer) {
+    private deserializeSchnorr(transaction: ITransactionData, buf: ByteBuffer): void {
         const canReadNonMultiSignature = () => {
             return buf.remaining() && (buf.remaining() % 64 === 0 || buf.remaining() % 65 !== 0);
         };
@@ -140,15 +151,45 @@ class Deserializer {
             if (buf.remaining() % 65 === 0) {
                 transaction.signatures = [];
 
-                const count = buf.remaining() / 65;
+                const count: number = buf.remaining() / 65;
+                const publicKeyIndexes: { [index: number]: boolean } = {};
                 for (let i = 0; i < count; i++) {
-                    const multiSignaturePart = buf.readBytes(65).toString("hex");
+                    const multiSignaturePart: string = buf.readBytes(65).toString("hex");
+                    const publicKeyIndex: number = parseInt(multiSignaturePart.slice(0, 2), 16);
+
+                    if (!publicKeyIndexes[publicKeyIndex]) {
+                        publicKeyIndexes[publicKeyIndex] = true;
+                    } else {
+                        throw new DuplicateParticipantInMultiSignatureError();
+                    }
+
                     transaction.signatures.push(multiSignaturePart);
                 }
             } else {
                 throw new MalformedTransactionBytesError();
             }
         }
+    }
+
+    private detectSchnorr(buf: ByteBuffer): boolean {
+        const remaining: number = buf.remaining();
+
+        // `signature` / `secondSignature`
+        if (remaining === 64 || remaining === 128) {
+            return true;
+        }
+
+        // `signatures` of a multi signature transaction (type != 4)
+        if (remaining % 65 === 0) {
+            return true;
+        }
+
+        // only possiblity left is a type 4 transaction with and without a `secondSignature`.
+        if ((remaining - 64) % 65 === 0 || (remaining - 128) % 65 === 0) {
+            return true;
+        }
+
+        return false;
     }
 
     // tslint:disable-next-line:member-ordering

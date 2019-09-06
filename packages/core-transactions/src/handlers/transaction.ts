@@ -8,10 +8,12 @@ import {
     InsufficientBalanceError,
     InvalidMultiSignatureError,
     InvalidSecondSignatureError,
+    LegacyMultiSignatureError,
     SenderWalletMismatchError,
     UnexpectedMultiSignatureError,
     UnexpectedNonceError,
     UnexpectedSecondSignatureError,
+    ZeroDatabaseBalanceError,
 } from "../errors";
 import { ITransactionHandler } from "../interfaces";
 
@@ -64,6 +66,13 @@ export abstract class TransactionHandler implements ITransactionHandler {
         sender: State.IWallet,
         databaseWalletManager: State.IWalletManager,
     ): Promise<void> {
+        if (
+            !databaseWalletManager.hasByPublicKey(sender.publicKey) &&
+            databaseWalletManager.findByAddress(sender.address).balance.isZero()
+        ) {
+            throw new ZeroDatabaseBalanceError();
+        }
+
         const data: Interfaces.ITransactionData = transaction.data;
 
         if (Utils.isException(data)) {
@@ -108,9 +117,21 @@ export abstract class TransactionHandler implements ITransactionHandler {
             }
         }
 
+        // Prevent legacy multi signatures from being used
+        const isMultiSignatureRegistration: boolean =
+            transaction.type === Enums.TransactionType.MultiSignature &&
+            transaction.typeGroup === Enums.TransactionTypeGroup.Core;
+        if (isMultiSignatureRegistration && !Managers.configManager.getMilestone().aip11) {
+            throw new UnexpectedMultiSignatureError();
+        }
+
         if (sender.hasMultiSignature()) {
             // Ensure the database wallet already has a multi signature, in case we checked a pool wallet.
             const dbSender: State.IWallet = databaseWalletManager.findByPublicKey(transaction.data.senderPublicKey);
+
+            if (dbSender.getAttribute("multiSignature").legacy) {
+                throw new LegacyMultiSignatureError();
+            }
 
             if (!dbSender.hasMultiSignature()) {
                 throw new UnexpectedMultiSignatureError();
@@ -119,7 +140,7 @@ export abstract class TransactionHandler implements ITransactionHandler {
             if (!dbSender.verifySignatures(data, dbSender.getAttribute("multiSignature"))) {
                 throw new InvalidMultiSignatureError();
             }
-        } else if (transaction.type !== Enums.TransactionType.MultiSignature && transaction.data.signatures) {
+        } else if (transaction.data.signatures && !isMultiSignatureRegistration) {
             throw new UnexpectedMultiSignatureError();
         }
     }

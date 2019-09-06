@@ -11,6 +11,7 @@ module.exports = {
             password: process.env.CORE_DB_PASSWORD || "password",
         },
     },
+    "@arkecosystem/core-marketplace":{},
     "@arkecosystem/core-transaction-pool": {
         enabled: true,
         maxTransactionsPerSender: process.env.CORE_TRANSACTION_POOL_MAX_PER_SENDER || 300,
@@ -30,7 +31,7 @@ module.exports = {
                 delegateResignation: 100,
                 htlcLock: 100,
                 htlcClaim: 0,
-                htlcRefund: 0,
+                htlcRefund: 0
             },
         },
     },

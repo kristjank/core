@@ -92,7 +92,7 @@ export class TransactionVersionError extends CryptoError {
 
 export class UnkownTransactionError extends CryptoError {
     constructor(given: string) {
-        super(`Transaction type ${given} is not registered.`);
+        super(`Unknown transaction type: ${given}`);
     }
 }
 
@@ -151,5 +151,11 @@ export class InvalidMilestoneConfigurationError extends CryptoError {
 export class InvalidMultiSignatureAssetError extends CryptoError {
     constructor() {
         super(`The multi signature asset is invalid.`);
+    }
+}
+
+export class DuplicateParticipantInMultiSignatureError extends CryptoError {
+    constructor() {
+        super(`Invalid multi signature, because duplicate participant found.`);
     }
 }

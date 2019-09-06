@@ -1,4 +1,5 @@
 import { Utils } from "@arkecosystem/crypto";
+import { InternalTransactionType } from "@arkecosystem/crypto/dist/transactions";
 
 // tslint:disable:max-classes-per-file
 
@@ -32,6 +33,12 @@ export class InvalidTransactionTypeError extends TransactionError {
     }
 }
 
+export class DeactivatedTransactionHandlerError extends TransactionError {
+    constructor(type: InternalTransactionType) {
+        super(`Transaction type ${type.toString()} is deactivated.`);
+    }
+}
+
 export class UnexpectedNonceError extends TransactionError {
     constructor(txNonce: Utils.BigNumber, walletNonce: Utils.BigNumber, reversal: boolean) {
         const action: string = reversal ? "revert" : "apply";
@@ -39,6 +46,12 @@ export class UnexpectedNonceError extends TransactionError {
             `Cannot ${action} a transaction with nonce ${txNonce.toFixed()}: the ` +
                 `corresponding sender wallet has nonce ${walletNonce.toFixed()}.`,
         );
+    }
+}
+
+export class ZeroDatabaseBalanceError extends TransactionError {
+    constructor() {
+        super(`Insufficient balance in database wallet. Wallet is not allowed to spend before funding is confirmed.`);
     }
 }
 
@@ -152,6 +165,12 @@ export class MultiSignatureAlreadyRegisteredError extends TransactionError {
 export class InvalidMultiSignatureError extends TransactionError {
     constructor() {
         super(`Failed to apply transaction, because the multi signature could not be verified.`);
+    }
+}
+
+export class LegacyMultiSignatureError extends TransactionError {
+    constructor() {
+        super(`Failed to apply transaction, because legacy multi signature is no longer supported.`);
     }
 }
 

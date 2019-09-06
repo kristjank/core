@@ -4,7 +4,7 @@ import { state } from "../mocks/state";
 
 import { State } from "@arkecosystem/core-interfaces";
 import { Handlers } from "@arkecosystem/core-transactions";
-import { Crypto, Identities, Transactions, Utils } from "@arkecosystem/crypto";
+import { Crypto, Identities, Managers, Transactions, Utils } from "@arkecosystem/crypto";
 import { Wallet, WalletManager } from "../../../../packages/core-state/src/wallets";
 import { TransactionFactory } from "../../../helpers/transaction-factory";
 
@@ -17,6 +17,7 @@ let walletManager: State.IWalletManager;
 const makeTimestamp = (secondsRelativeToNow = 0) => Math.floor((Date.now() + secondsRelativeToNow * 1000) / 1000);
 
 beforeAll(() => {
+    Managers.configManager.getMilestone().aip11 = true;
     jest.spyOn(Handlers.Registry, "isKnownWalletAttribute").mockReturnValue(true);
 });
 
@@ -70,6 +71,7 @@ describe("Wallet Manager", () => {
                 };
                 const lockTransaction = TransactionFactory.htlcLock(htlcLockAsset, claimWallet.address, amount)
                     .withPassphrase(lockPassphrase)
+                    .withNonce(Utils.BigNumber.ONE)
                     .withFee(1e7)
                     .build(1)[0];
 

@@ -1,5 +1,6 @@
 import { app } from "@arkecosystem/core-container";
 import { Database } from "@arkecosystem/core-interfaces";
+import { Builders as MarketplaceBuilders, Interfaces as MarketplaceInterfaces } from "@arkecosystem/core-marketplace";
 import { Identities, Interfaces, Managers, Transactions, Types, Utils } from "@arkecosystem/crypto";
 import { secrets } from "../utils/config/testnet/delegates.json";
 
@@ -76,7 +77,7 @@ export class TransactionFactory {
             factory.withPassphraseList(passphrases);
         }
 
-        factory.builder.senderPublicKey(participants[0]);
+        factory.withSenderPublicKey(participants[0]);
         return factory;
     }
 
@@ -111,6 +112,46 @@ export class TransactionFactory {
             builder.addPayment(payment.recipientId, payment.amount);
         }
         return new TransactionFactory(builder);
+    }
+
+    public static businessRegistration(
+        businessRegistrationAsset: MarketplaceInterfaces.IBusinessRegistrationAsset,
+    ): TransactionFactory {
+        const businessRegistrationBuilder = new MarketplaceBuilders.BusinessRegistrationBuilder();
+        businessRegistrationBuilder.businessRegistrationAsset(businessRegistrationAsset);
+        return new TransactionFactory(businessRegistrationBuilder);
+    }
+
+    public static businessResignation(): TransactionFactory {
+        return new TransactionFactory(new MarketplaceBuilders.BusinessResignationBuilder());
+    }
+
+    public static businessUpdate(businessUpdateAsset: MarketplaceInterfaces.IBusinessUpdateAsset): TransactionFactory {
+        const businessUpdateBuilder = new MarketplaceBuilders.BusinessUpdateBuilder();
+        businessUpdateBuilder.businessUpdateAsset(businessUpdateAsset);
+        return new TransactionFactory(businessUpdateBuilder);
+    }
+
+    public static bridgechainRegistration(
+        bridgechainRegistrationAsset: MarketplaceInterfaces.IBridgechainRegistrationAsset,
+    ): TransactionFactory {
+        const bridgechainRegistrationBuilder = new MarketplaceBuilders.BridgechainRegistrationBuilder();
+        bridgechainRegistrationBuilder.bridgechainRegistrationAsset(bridgechainRegistrationAsset);
+        return new TransactionFactory(bridgechainRegistrationBuilder);
+    }
+
+    public static bridgechainResignation(registeredBridgechainId: string): TransactionFactory {
+        const bridgechainResignationBuilder = new MarketplaceBuilders.BridgechainResignationBuilder();
+        bridgechainResignationBuilder.businessResignationAsset(registeredBridgechainId);
+        return new TransactionFactory(bridgechainResignationBuilder);
+    }
+
+    public static bridgechainUpdate(
+        bridgechainUpdateAsset: MarketplaceInterfaces.IBridgechainUpdateAsset,
+    ): TransactionFactory {
+        const bridgechainUpdateBuilder = new MarketplaceBuilders.BridgechainUpdateBuilder();
+        bridgechainUpdateBuilder.bridgechainUpdateAsset(bridgechainUpdateAsset);
+        return new TransactionFactory(bridgechainUpdateBuilder);
     }
 
     public static getNonce(publicKey: string): Utils.BigNumber {
@@ -285,7 +326,7 @@ export class TransactionFactory {
                 this.builder.version(this.version);
             }
 
-            if (this.builder.data.version > 1 && Managers.configManager.getMilestone().aip11) {
+            if (this.builder.data.version > 1) {
                 nonce = nonce.plus(1);
                 this.builder.nonce(nonce);
             }
@@ -306,8 +347,6 @@ export class TransactionFactory {
                 this.builder.expiration(this.expiration);
             }
 
-            this.builder.senderPublicKey(this.senderPublicKey);
-
             let sign: boolean = true;
             if (this.passphraseList && this.passphraseList.length) {
                 sign = this.builder.constructor.name === "MultiSignatureBuilder";
@@ -317,7 +356,16 @@ export class TransactionFactory {
                 }
             }
 
+            const testnet: boolean = ["unitnet", "testnet"].includes(Managers.configManager.get("network.name"));
+
             if (sign) {
+                const aip11: boolean = Managers.configManager.getMilestone().aip11;
+                if (this.builder.data.version === 1 && aip11) {
+                    Managers.configManager.getMilestone().aip11 = false;
+                } else if (testnet) {
+                    Managers.configManager.getMilestone().aip11 = true;
+                }
+
                 this.builder.sign(this.passphrase);
 
                 if (this.secondPassphrase) {
@@ -325,7 +373,13 @@ export class TransactionFactory {
                 }
             }
 
-            transactions.push(this.builder[method]());
+            const transaction = this.builder[method]();
+
+            if (testnet) {
+                Managers.configManager.getMilestone().aip11 = true;
+            }
+
+            transactions.push(transaction);
         }
 
         return transactions;

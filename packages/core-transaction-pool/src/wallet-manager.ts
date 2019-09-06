@@ -10,6 +10,19 @@ export class WalletManager extends Wallets.WalletManager {
         "database",
     );
 
+    public constructor() {
+        super();
+
+        const indexes: string[] = this.databaseService.walletManager.getIndexNames();
+        for (const index of indexes) {
+            if (this.indexes[index]) {
+                continue;
+            }
+
+            this.registerIndex(index, this.databaseService.walletManager.getIndex(index).indexer);
+        }
+    }
+
     public findByAddress(address: string): State.IWallet {
         if (address && !this.hasByAddress(address)) {
             this.reindex(clonedeep(this.databaseService.walletManager.findByAddress(address)));
@@ -24,31 +37,19 @@ export class WalletManager extends Wallets.WalletManager {
     }
 
     public async throwIfCannotBeApplied(transaction: Interfaces.ITransaction): Promise<void> {
-        // Edge case if sender is unknown and has no balance.
-        // NOTE: Check is performed against the database wallet manager.
-        const senderPublicKey: string = transaction.data.senderPublicKey;
-        if (!this.databaseService.walletManager.hasByPublicKey(senderPublicKey)) {
-            const senderAddress: string = Identities.Address.fromPublicKey(senderPublicKey);
-
-            if (this.databaseService.walletManager.findByAddress(senderAddress).balance.isZero()) {
-                const message: string = "Wallet not allowed to spend before funding is confirmed.";
-
-                this.logger.error(message);
-
-                throw new Error(message);
-            }
-        }
-
-        const sender: State.IWallet = this.findByPublicKey(senderPublicKey);
-
-        return Handlers.Registry.get(transaction.type, transaction.typeGroup).throwIfCannotBeApplied(
-            transaction,
-            sender,
-            this.databaseService.walletManager,
+        const sender: State.IWallet = this.findByPublicKey(transaction.data.senderPublicKey);
+        const handler: Handlers.TransactionHandler = await Handlers.Registry.get(
+            transaction.type,
+            transaction.typeGroup,
         );
+        return handler.throwIfCannotBeApplied(transaction, sender, this.databaseService.walletManager);
     }
 
     public async revertTransactionForSender(transaction: Interfaces.ITransaction): Promise<void> {
-        return Handlers.Registry.get(transaction.type, transaction.typeGroup).revertForSender(transaction, this);
+        const handler: Handlers.TransactionHandler = await Handlers.Registry.get(
+            transaction.type,
+            transaction.typeGroup,
+        );
+        return handler.revertForSender(transaction, this);
     }
 }

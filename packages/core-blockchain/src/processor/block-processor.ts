@@ -12,7 +12,9 @@ import {
     AlreadyForgedHandler,
     BlockHandler,
     ExceptionHandler,
+    IncompatibleTransactionsHandler,
     InvalidGeneratorHandler,
+    NonceOutOfOrderHandler,
     UnchainedHandler,
     VerificationFailedHandler,
 } from "./handlers";
@@ -41,6 +43,14 @@ export class BlockProcessor {
             return new VerificationFailedHandler(this.blockchain, block);
         }
 
+        if (this.blockContainsIncompatibleTransactions(block)) {
+            return new IncompatibleTransactionsHandler(this.blockchain, block);
+        }
+
+        if (this.blockContainsOutOfOrderNonce(block)) {
+            return new NonceOutOfOrderHandler(this.blockchain, block);
+        }
+
         const isValidGenerator: boolean = await validateGenerator(block);
         const isChained: boolean = isBlockChained(this.blockchain.getLastBlock().data, block.data);
         if (!isChained) {
@@ -61,15 +71,20 @@ export class BlockProcessor {
 
     private async verifyBlock(block: Interfaces.IBlock): Promise<boolean> {
         if (block.verification.containsMultiSignatures) {
-            for (const transaction of block.transactions) {
-                const handler: Handlers.TransactionHandler = Handlers.Registry.get(
-                    transaction.type,
-                    transaction.typeGroup,
-                );
-                await handler.verify(transaction, this.blockchain.database.walletManager);
-            }
+            try {
+                for (const transaction of block.transactions) {
+                    const handler: Handlers.TransactionHandler = await Handlers.Registry.get(
+                        transaction.type,
+                        transaction.typeGroup,
+                    );
+                    await handler.verify(transaction, this.blockchain.database.walletManager);
+                }
 
-            block.verification = block.verify();
+                block.verification = block.verify();
+            } catch (error) {
+                this.logger.warn(`Failed to verify block, because: ${error.message}`);
+                block.verification.verified = false;
+            }
         }
 
         const { verified } = block.verification;
@@ -108,6 +123,57 @@ export class BlockProcessor {
 
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if a block contains incompatible transactions and should thus be rejected.
+     */
+    private blockContainsIncompatibleTransactions(block: Interfaces.IBlock): boolean {
+        for (let i = 1; i < block.transactions.length; i++) {
+            if (block.transactions[i].data.version !== block.transactions[0].data.version) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if a block's transactions violate nonce order.
+     * For a given sender, all v1 transactions must precede all v2 transactions.
+     * In addition, for a given sender, v2 transactions must have strictly
+     * increasing nonce without gaps.
+     */
+    private blockContainsOutOfOrderNonce(block: Interfaces.IBlock): boolean {
+        const nonceBySender = {};
+
+        for (const transaction of block.transactions) {
+            const data = transaction.data;
+
+            if (data.version < 2) {
+                continue;
+            }
+
+            const sender: string = data.senderPublicKey;
+
+            if (nonceBySender[sender] === undefined) {
+                nonceBySender[sender] = this.blockchain.database.walletManager.getNonce(sender);
+            }
+
+            if (!nonceBySender[sender].plus(1).isEqualTo(data.nonce)) {
+                this.logger.warn(
+                    `Block { height: ${block.data.height.toLocaleString()}, id: ${block.data.id} } ` +
+                        `not accepted: invalid nonce order for sender ${sender}: ` +
+                        `preceding nonce: ${nonceBySender[sender].toFixed()}, ` +
+                        `transaction ${data.id} has nonce ${data.nonce.toFixed()}.`,
+                );
+                return true;
+            }
+
+            nonceBySender[sender] = data.nonce;
         }
 
         return false;
