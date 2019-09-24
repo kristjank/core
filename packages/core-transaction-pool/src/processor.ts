@@ -31,10 +31,6 @@ export class Processor implements TransactionPool.IProcessor {
 
             await this.addTransactionsToPool();
 
-            app.resolvePlugin<State.IStateService>("state")
-                .getStore()
-                .removeCachedTransactionIds([...new Set([...this.accept.keys(), ...Object.keys(this.errors)])]);
-
             this.printStats();
         }
 
@@ -244,6 +240,8 @@ export class Processor implements TransactionPool.IProcessor {
         const stats: string = ["accept", "broadcast", "excess", "invalid"]
             .map(prop => `${prop}: ${this[prop] instanceof Array ? this[prop].length : this[prop].size}`)
             .join(" ");
+
+        app.resolvePlugin<Logger.ILogger>("logger").debug(JSON.stringify(this.errors));
 
         app.resolvePlugin<Logger.ILogger>("logger").info(
             `Received ${pluralize("transaction", this.transactions.length, true)} (${stats}).`,

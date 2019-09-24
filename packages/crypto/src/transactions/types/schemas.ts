@@ -221,7 +221,7 @@ export const htlcLock = extend(transactionBaseSchema, {
                             type: "object",
                             required: ["type", "value"],
                             properties: {
-                                type: { type: "integer", minimum: 1, maximum: 2 },
+                                type: { enum: [1, 2] },
                                 value: { type: "integer", minimum: 0 },
                             },
                         },
@@ -289,7 +289,6 @@ export const multiPayment = extend(transactionBaseSchema, {
                 payments: {
                     type: "array",
                     minItems: 2,
-                    maxItems: 500,
                     additionalItems: false,
                     uniqueItems: false,
                     items: {

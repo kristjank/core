@@ -1,3 +1,4 @@
+import { State } from "@arkecosystem/core-interfaces";
 import { Utils } from "@arkecosystem/crypto";
 import { InternalTransactionType } from "@arkecosystem/crypto/dist/transactions";
 
@@ -40,16 +41,16 @@ export class DeactivatedTransactionHandlerError extends TransactionError {
 }
 
 export class UnexpectedNonceError extends TransactionError {
-    constructor(txNonce: Utils.BigNumber, walletNonce: Utils.BigNumber, reversal: boolean) {
+    constructor(txNonce: Utils.BigNumber, sender: State.IWallet, reversal: boolean) {
         const action: string = reversal ? "revert" : "apply";
         super(
             `Cannot ${action} a transaction with nonce ${txNonce.toFixed()}: the ` +
-                `corresponding sender wallet has nonce ${walletNonce.toFixed()}.`,
+            `sender ${sender.publicKey} has nonce ${sender.nonce.toFixed()}.`,
         );
     }
 }
 
-export class ZeroDatabaseBalanceError extends TransactionError {
+export class ColdWalletError extends TransactionError {
     constructor() {
         super(`Insufficient balance in database wallet. Wallet is not allowed to spend before funding is confirmed.`);
     }
@@ -153,6 +154,12 @@ export class VotedForNonDelegateError extends TransactionError {
 export class VotedForResignedDelegateError extends TransactionError {
     constructor(vote: string) {
         super(`Failed to apply transaction, because it votes for a resigned delegate.`);
+    }
+}
+
+export class NotEnoughDelegatesError extends TransactionError {
+    constructor() {
+        super(`Failed to apply transaction, because not enough delegates to allow resignation.`);
     }
 }
 

@@ -5,6 +5,7 @@ import { Database, EventEmitter, State, TransactionPool } from "@arkecosystem/co
 import { Enums, Interfaces, Managers, Transactions, Utils } from "@arkecosystem/crypto";
 import assert from "assert";
 import {
+    ColdWalletError,
     InsufficientBalanceError,
     InvalidMultiSignatureError,
     InvalidSecondSignatureError,
@@ -13,7 +14,6 @@ import {
     UnexpectedMultiSignatureError,
     UnexpectedNonceError,
     UnexpectedSecondSignatureError,
-    ZeroDatabaseBalanceError,
 } from "../errors";
 import { ITransactionHandler } from "../interfaces";
 
@@ -61,18 +61,11 @@ export abstract class TransactionHandler implements ITransactionHandler {
         return Utils.BigNumber.make(addonBytes + transactionSizeInBytes).times(satoshiPerByte);
     }
 
-    public async throwIfCannotBeApplied(
+    protected async performGenericWalletChecks(
         transaction: Interfaces.ITransaction,
         sender: State.IWallet,
         databaseWalletManager: State.IWalletManager,
     ): Promise<void> {
-        if (
-            !databaseWalletManager.hasByPublicKey(sender.publicKey) &&
-            databaseWalletManager.findByAddress(sender.address).balance.isZero()
-        ) {
-            throw new ZeroDatabaseBalanceError();
-        }
-
         const data: Interfaces.ITransactionData = transaction.data;
 
         if (Utils.isException(data)) {
@@ -80,7 +73,7 @@ export abstract class TransactionHandler implements ITransactionHandler {
         }
 
         if (data.version > 1 && data.nonce.isLessThanOrEqualTo(sender.nonce)) {
-            throw new UnexpectedNonceError(data.nonce, sender.nonce, false);
+            throw new UnexpectedNonceError(data.nonce, sender, false);
         }
 
         if (
@@ -145,6 +138,21 @@ export abstract class TransactionHandler implements ITransactionHandler {
         }
     }
 
+    public async throwIfCannotBeApplied(
+        transaction: Interfaces.ITransaction,
+        sender: State.IWallet,
+        databaseWalletManager: State.IWalletManager,
+    ): Promise<void> {
+        if (
+            !databaseWalletManager.hasByPublicKey(sender.publicKey) &&
+            databaseWalletManager.findByAddress(sender.address).balance.isZero()
+        ) {
+            throw new ColdWalletError();
+        }
+
+        return this.performGenericWalletChecks(transaction, sender, databaseWalletManager);
+    }
+
     public async apply(transaction: Interfaces.ITransaction, walletManager: State.IWalletManager): Promise<void> {
         await this.applyToSender(transaction, walletManager);
         await this.applyToRecipient(transaction, walletManager);
@@ -170,7 +178,7 @@ export abstract class TransactionHandler implements ITransactionHandler {
 
         if (data.version > 1) {
             if (!sender.nonce.plus(1).isEqualTo(data.nonce)) {
-                throw new UnexpectedNonceError(data.nonce, sender.nonce, false);
+                throw new UnexpectedNonceError(data.nonce, sender, false);
             }
 
             sender.nonce = data.nonce;
@@ -198,7 +206,7 @@ export abstract class TransactionHandler implements ITransactionHandler {
 
         if (data.version > 1) {
             if (!sender.nonce.isEqualTo(data.nonce)) {
-                throw new UnexpectedNonceError(data.nonce, sender.nonce, true);
+                throw new UnexpectedNonceError(data.nonce, sender, true);
             }
 
             sender.nonce = sender.nonce.minus(1);

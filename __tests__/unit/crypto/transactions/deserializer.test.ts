@@ -1,10 +1,10 @@
 import "jest-extended";
 
 import ByteBuffer from "bytebuffer";
-import { Enums, Utils } from "../../../../packages/crypto/src";
+import { Enums, Errors, Utils } from "../../../../packages/crypto/src";
 import { Hash } from "../../../../packages/crypto/src/crypto";
 import {
-    MalformedTransactionBytesError,
+    InvalidTransactionBytesError,
     TransactionSchemaError,
     TransactionVersionError,
     UnkownTransactionError,
@@ -17,10 +17,6 @@ import { BuilderFactory } from "../../../../packages/crypto/src/transactions/bui
 import { deserializer } from "../../../../packages/crypto/src/transactions/deserializer";
 import { Serializer } from "../../../../packages/crypto/src/transactions/serializer";
 import { legacyMultiSignatureRegistration } from "./__fixtures__/transaction";
-
-import { HtlcLockExpirationType } from "../../../../packages/crypto/src/transactions/types/enums";
-
-const { UnixTimestamp } = HtlcLockExpirationType;
 
 describe("Transaction serializer / deserializer", () => {
     const checkCommonFields = (deserialized: ITransaction, expected) => {
@@ -223,7 +219,7 @@ describe("Transaction serializer / deserializer", () => {
             transaction.serialized = transaction.serialized.slice(0, transaction.serialized.length - 2);
 
             expect(() => TransactionFactory.fromBytes(transaction.serialized)).toThrowError(
-                MalformedTransactionBytesError,
+                InvalidTransactionBytesError,
             );
         });
     });
@@ -332,13 +328,31 @@ describe("Transaction serializer / deserializer", () => {
             configManager.getMilestone().aip11 = true;
             expect(multiPayment.verify()).toBeTrue();
         });
+
+        it("should fail if more than hardcoded maximum of payments", () => {
+            const multiPayment = BuilderFactory.multiPayment()
+                .fee("50000000")
+                .network(23);
+
+            for (let i = 0; i < 500; i++) {
+                multiPayment.addPayment(Address.fromPassphrase(`recipient-${i}`), "1");
+            }
+
+            expect(() => multiPayment.addPayment(Address.fromPassphrase("recipient501"), "1")).toThrow(
+                Errors.MaximumPaymentCountExceededError,
+            );
+
+            const transaction = multiPayment.sign("dummy passphrase").build();
+            expect(transaction.verify()).toBeTrue();
+            expect(TransactionFactory.fromBytes(transaction.serialized, true).verify()).toBeTrue();
+        });
     });
 
     describe("ser/deserialize - htlc lock", () => {
         const htlcLockAsset = {
             secretHash: "0f128d401958b1b30ad0d10406f47f9489321017b4614e6cb993fc63913c5454",
             expiration: {
-                type: UnixTimestamp,
+                type: Enums.HtlcLockExpirationType.EpochTimestamp,
                 value: Math.floor(Date.now() / 1000),
             },
         };
@@ -613,8 +627,8 @@ describe("Transaction serializer / deserializer", () => {
     });
 
     describe("getBytesV1", () => {
-        beforeAll(() => configManager.getMilestone().aip11 = false);
-        afterAll(() => configManager.getMilestone().aip11 = true);
+        beforeAll(() => (configManager.getMilestone().aip11 = false));
+        afterAll(() => (configManager.getMilestone().aip11 = true));
         let bytes;
 
         // it('should return Buffer of simply transaction and buffer must be 292 length', () => {
