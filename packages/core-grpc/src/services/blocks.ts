@@ -9,7 +9,7 @@ export class Blocks extends BaseService {
         const block = await this.blocksRepository.findById(call.request.id);
         this.logger.info(block);
 
-        callback(null, { id: block.id, reward: block.reward.toFixed() });
+        callback(null, { id: block.id, block });
     }
 
     public getForgedBlocksAsStream(call: ServerWriteableStream<any>): void {
